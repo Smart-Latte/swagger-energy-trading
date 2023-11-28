@@ -1,0 +1,360 @@
+openapi: 3.0.3
+info:
+  title: Energy Trading System API
+  description: |-
+    サーバで受け付けるリクエストを示します。
+    
+    システムの前提：2023/05/02のデータを利用（日付は変わるかも）。時刻はリアルタイムにする予定。
+    
+    （例：2023/12/15 15:35に通信したら、2023/05/02 15:35のデータが返る。）
+    
+    URLは適当。なるべく早くVPNでアクセスできるサーバにプログラムを置き、アクセス可能なIPアドレスに変更する予定。
+    
+    テクノモールはLAN内のPCで稼働するため、VPNでアクセスする際とは異なるIPアドレスを利用。
+  version: 1.0.0
+servers:
+
+  - url: http://localhost:8080
+tags:
+  - name: ユーザ登録
+  - name: EV登録
+  - name: 電力購入要求
+  - name: アンドロイドアプリ
+  - name: Webアプリ
+  - name: アプリ共通
+  
+      
+paths:
+  /registerUser:
+    post:
+      tags:
+        - ユーザ登録
+      summary: ユーザをDBに保存する（アプリ実装は任意）
+      description: EV登録前に行う。レスポンスコードが200以外ならエラー。
+      requestBody:
+        description: ユーザ登録のための情報
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userID:
+                    type: string
+                    example: user001
+        required: true
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                    status:
+                        type: string
+                        example: success
+        '400':
+          description: 既に存在するuserIDを登録しようとした場合
+  /registerProsume:
+    post:
+      tags:
+        - EV登録
+      summary: EVをDBに保存する（アプリ実装は任意）
+      description: |- 
+        電力購入前に行う。レスポンスコードが200以外ならエラー。
+        (Prosumeは供給側と需要家を兼ね備えているということで、EV以外の消費者はもちろん、発電所の登録もこれでできる。)
+      requestBody:
+        description: EV登録のための情報。amountPerHourはWh。
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userID:
+                    type: string
+                    example: user001
+                prosumeID:
+                    type: string
+                    example: EV001
+                amountPerHour:
+                    type: number
+                    example: 6000
+        required: true
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                    status:
+                        type: string
+                        example: success
+        '400':
+          description: 既に別のuserIDに紐づいているEVを登録しようとした場合
+        '406':
+          description: amountPerHourが0または-2以下の場合（-1は充電のスピードに制限がないことを示すためエラーにならない）
+  /purchaseEnergy:
+    post:
+      tags:
+        - 電力購入要求
+      summary: サーバに電力購入要求を送る
+      description: 電力を購入したい場合実行。ブロックチェーンアプリへの入札要求が成功すれば200。
+      requestBody:
+        description: |-
+            電力購入要求のための情報。
+            
+            mode: 0ならば通常電力購入、1ならばグリーン電力購入。
+
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prosumeID:
+                    type: string
+                    example: EV001
+                mode:
+                    type: integer
+                    example: 1
+                conLat:
+                    type: number
+                    example: 35.5
+                conLon:
+                    type: number
+                    example: 137.1
+                totalWantToBuyAmount:
+                    type: number
+                    example: 100000            
+        required: true
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                    status:
+                        type: string
+                        example: success
+        '400':
+          description: 充電したいEVについて、実行中の充電要求がある場合（テクノモールでは邪魔な処理かも？もしだったら消す）
+        '406':
+          description: いずれかのパラメータが不正な場合
+        '500':
+          description: ブロックチェーンアプリとの通信に問題があった場合
+  /getEVhistory/{prosumeID}:
+    get:
+      tags:
+        - アンドロイドアプリ
+      summary: あるEVのこれまでの電力要求履歴を得る（ユーザにすることも可能）
+      description: すべてのリクエストの購入希望量、購入電力量、電力購入価格平均を得る。各リクエストの情報が配列で返る。buyPriceはWhの価格
+      parameters:
+        - name: prosumeID
+          in: path
+          description: "履歴を取得したいconsumeID"
+          required: true
+          schema:
+            type: string
+            
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    requestID:
+                      type: string
+                      example: user001-EV001-1
+                    totalWantToBuyAmount:
+                      type: number
+                      example: 100000
+                    totalBuyAmount:
+                      type: number
+                      example: 100000
+                    buyPrice:
+                      type: number
+                      example: 0.020
+        '406':
+          description: consumeIDが不正な場合
+  /getRequestInfo/{requestID}:
+    get:
+      tags:
+        - アンドロイドアプリ
+      summary: ある取引のすべての落札情報を得る
+      description: 購入電力量、購入価格（Wh）、落札時間、供給者の緯度経度の配列
+      parameters:
+        - name: requestID
+          in: path
+          description: "情報を取得したい取引のID"
+          required: true
+          schema:
+            type: string
+            
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    buyID:
+                      type: string
+                      example: user001-0-0
+                    buyAmount:
+                      type: number
+                      example: 100000
+                    buyPrice:
+                      type: number
+                      example: 0.020
+                    buytime:
+                      type: string
+                      example: 2023-05-02 12:00:00
+                    proLat:
+                      type: number
+                      example: 35.5
+                    proLon:
+                      type: number
+                      example: 135.2
+        '406':
+          description: requestIDが不正な場合
+  /getNowTradingData:
+    get:
+      tags:
+        - Webアプリ
+      summary: 現在の発電と購入の状況を得る。ユーザ一覧もこれで大丈夫なはず。
+      description: 過去30分間の各拠点またはEVの緯度、経度、発電量、販売量、平均販売価格、要求量、購入量、平均購入価格の配列を返す（今回はEVが移動しないことが前提）
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    prosumeID:
+                      type: string
+                      example: user001
+                    lat:
+                      type: number
+                      example: 35.5
+                    lon:
+                      type: number
+                      example: 137.6
+                    produceAmount:
+                      type: number
+                      example: 100000.0
+                    soldAmount:
+                      type: number
+                      example: 9000.0
+                    soldPrice:
+                      type: number
+                      example: 0.019
+                    wantAmount:
+                      type: number
+                      example: 100000
+                    buyAmount:
+                      type: number
+                      example: 100000
+                    buyPrice:
+                      type: number
+                      example: 0.020
+        '500':
+          description: 何らかのエラー。通常想定されない。
+  /getUserDetail/{prosumeID}:
+    get:
+      tags:
+        - Webアプリ
+      summary: ある拠点またはEVの本日の取引相手、発電所（または供給先）取引量、取引価格、電力の種類を返す。
+      description: |-
+        レスポンスは入れ子のjson。まずbuyとsellに分かれる。それぞれの中に取引相手ごとのデータを1単位とした配列が存在。取引相手が存在しない場合は、buyとsellの中が空になる。（Example要確認）
+        
+        電力の種類は、solar, wind, thermalのいずれか。
+      
+        本当は直近1時間のデータ、今月のデータという風に期間を指定できた方が良いと思うが、アプリ側の実装も面倒だと思うので考えないことにした。
+      
+      
+      parameters:
+        - name: prosumeID
+          in: path
+          description: "取引の詳細履歴を取得したい拠点のID"
+          required: true
+          schema:
+            type: string
+            
+      responses:
+        '200':
+          description: 成功。
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  properties:
+                    buy:
+                      properties:
+                        prosumeID:
+                          type: string
+                          example: keio00001
+                        buyAmount:
+                          type: number
+                          example: 100000
+                        buyPrice:
+                          type: number
+                          example: 0.020
+                        type:
+                          type: string
+                          example: solar
+                    sell:
+                      properties:
+                        prosumeID:
+                          type: string
+                          example: ev00001
+                        sellAmount:
+                          type: number
+                          example: 6000
+                        sellPrice:
+                          type: number
+                          example: 0.025
+                        type:
+                          type: string
+                          example: wind
+                        
+        '406':
+          description: userIDが不正な場合
+  /getForecastPrice/{prosumeID}:
+    get:
+      tags:
+        - アプリ共通
+      summary: 購入価格の予想
+      description: いんちき
+      
+      parameters:
+        - name: prosumeID
+          in: path
+          description: "EV等のID"
+          required: true
+          schema:
+            type: string
+            
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                    forecastPrice:
+                        type: number
+                        example: 0.020
+        '500':
+          description: 何らかのエラー。通常想定されない。
