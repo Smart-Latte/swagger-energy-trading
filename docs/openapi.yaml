@@ -154,7 +154,7 @@ paths:
       parameters:
         - name: prosumeID
           in: path
-          description: "履歴を取得したいconsumeID"
+          description: "履歴を取得したいprosumeID"
           required: true
           schema:
             type: string
