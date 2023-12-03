@@ -76,6 +76,12 @@ paths:
                 prosumeID:
                     type: string
                     example: EV001
+                lat:
+                    type: number
+                    example: 35.5
+                lon:
+                    type: number
+                    example: 137.1
                 amountPerHour:
                     type: number
                     example: 6000
@@ -118,12 +124,6 @@ paths:
                 mode:
                     type: integer
                     example: 1
-                conLat:
-                    type: number
-                    example: 35.5
-                conLon:
-                    type: number
-                    example: 137.1
                 totalWantToBuyAmount:
                     type: number
                     example: 100000            
