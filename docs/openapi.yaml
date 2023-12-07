@@ -180,7 +180,9 @@ paths:
                     buyPrice:
                       type: number
                       example: 0.020
-        '406':
+        '204':
+          description: リクエストが存在しない場合
+        '400':
           description: consumeIDが不正な場合
   /getRequestInfo/{requestID}:
     get:
