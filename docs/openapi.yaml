@@ -11,7 +11,7 @@ info:
     URLは適当。なるべく早くVPNでアクセスできるサーバにプログラムを置き、アクセス可能なIPアドレスに変更する予定。
     
     テクノモールはLAN内のPCで稼働するため、VPNでアクセスする際とは異なるIPアドレスを利用。
-  version: 1.0.0
+  version: 1.0.1
 servers:
 
   - url: http://localhost:8080
@@ -150,7 +150,7 @@ paths:
       tags:
         - アンドロイドアプリ
       summary: あるEVのこれまでの電力要求履歴を得る（ユーザにすることも可能）
-      description: すべてのリクエストの購入希望量、購入電力量、電力購入価格平均を得る。各リクエストの情報が配列で返る。buyPriceはWhの価格
+      description: すべてのリクエストの購入希望量、購入電力量、電力購入価格平均、グリーン率を得る。各リクエストの情報が配列で返る。buyPriceはWhの価格
       parameters:
         - name: prosumeID
           in: path
@@ -180,6 +180,9 @@ paths:
                     buyPrice:
                       type: number
                       example: 0.020
+                    percentageGreen:
+                      type: number
+                      example: 0.7
         '204':
           description: リクエストが存在しない場合
         '400':
@@ -279,6 +282,8 @@ paths:
       description: |-
         レスポンスは入れ子のjson。まずbuyとsellに分かれる。それぞれの中に取引相手ごとのデータを1単位とした配列が存在。取引相手が存在しない場合は、buyとsellの中が空になる。（Example要確認）
         
+        "buy": nullのように、データがなければnullとなる場合あり。
+        
         電力の種類は、solar, wind, thermalのいずれか。
       
         本当は直近1時間のデータ、今月のデータという風に期間を指定できた方が良いと思うが、アプリ側の実装も面倒だと思うので考えないことにした。
@@ -298,37 +303,41 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  properties:
+                type: object
+                properties:
                     buy:
-                      properties:
-                        prosumeID:
-                          type: string
-                          example: keio00001
-                        buyAmount:
-                          type: number
-                          example: 100000
-                        buyPrice:
-                          type: number
-                          example: 0.020
-                        type:
-                          type: string
-                          example: solar
+                      type: array
+                      items:
+                        properties:
+                          prosumeID:
+                            type: string
+                            example: keio00001
+                          buyAmount:
+                            type: number
+                            example: 100000
+                          buyPrice:
+                            type: number
+                            example: 0.020
+                          type:
+                            type: string
+                            example: solar
                     sell:
-                      properties:
-                        prosumeID:
-                          type: string
-                          example: ev00001
-                        sellAmount:
-                          type: number
-                          example: 6000
-                        sellPrice:
-                          type: number
-                          example: 0.025
-                        type:
-                          type: string
-                          example: wind
+                      type: array
+                      items:
+                        properties:
+                          prosumeID:
+                            type: string
+                            example: ev00001
+                          sellAmount:
+                            type: number
+                            example: 6000
+                          sellPrice:
+                            type: number
+                            example: 0.025
+                          type:
+                            type: string
+                            example: wind
+                      
                         
         '406':
           description: userIDが不正な場合
