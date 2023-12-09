@@ -15,6 +15,7 @@ info:
 servers:
 
   - url: http://localhost:8080
+  - url: http://192.168.4.187:8080
 tags:
   - name: ユーザ登録
   - name: EV登録
